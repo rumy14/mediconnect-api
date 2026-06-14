@@ -8,6 +8,8 @@ import { AppError } from '../middleware/errorHandler';
 import { validate } from '../middleware/validate';
 import { authenticate } from '../middleware/auth';
 import { registerSchema, loginSchema } from '../validators/auth';
+import { sendWelcomeEmail } from '../services/email';
+import { triggerWelcomeCall } from '../services/vapi';
 
 export const authRouter = Router();
 
@@ -26,7 +28,7 @@ authRouter.post('/register', validate(registerSchema), async (req: Request, res:
 
     const user = await prisma.user.create({
       data: { email, passwordHash, firstName, lastName, phone, role },
-      select: { id: true, email: true, firstName: true, lastName: true, role: true, createdAt: true },
+      select: { id: true, email: true, firstName: true, lastName: true, phone: true, role: true, createdAt: true },
     });
 
     const token = jwt.sign(
@@ -34,6 +36,12 @@ authRouter.post('/register', validate(registerSchema), async (req: Request, res:
       config.jwt.secret,
       { expiresIn: config.jwt.expiresIn }
     );
+
+    // Fire welcome email + call in background — don't block response
+    Promise.all([
+      sendWelcomeEmail(user.email, user.firstName),
+      triggerWelcomeCall(user.phone!, user.firstName),
+    ]).catch((err) => console.error('[SIGNUP] Background task error:', err));
 
     res.status(201).json(success({ user, token }, 'Registration successful'));
   } catch (error) {
@@ -48,7 +56,7 @@ authRouter.post('/login', validate(loginSchema), async (req: Request, res: Respo
 
     const user = await prisma.user.findUnique({
       where: { email },
-      select: { id: true, email: true, firstName: true, lastName: true, role: true, passwordHash: true, isActive: true },
+      select: { id: true, email: true, firstName: true, lastName: true, role: true, passwordHash: true, isActive: true, phone: true },
     });
 
     if (!user || !user.isActive) {

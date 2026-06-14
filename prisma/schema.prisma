@@ -27,7 +27,7 @@ model User {
   passwordHash  String
   firstName     String
   lastName      String
-  phone         String?
+  phone         String
   role          UserRole  @default(PATIENT)
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
