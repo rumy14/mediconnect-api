@@ -1,0 +1,125 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  PATIENT
+  DOCTOR
+  ADMIN
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  firstName     String
+  lastName      String
+  phone         String?
+  role          UserRole  @default(PATIENT)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  doctorProfile Doctor?
+  appointments  Appointment[] @relation("PatientAppointments")
+}
+
+model Doctor {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  licenseNumber String    @unique
+  bio           String?
+  education     String?
+  experience    String?   // years or description
+  consultationFee Decimal  @default(0.0) @db.Decimal(10, 2)
+  isAvailable   Boolean   @default(true)
+  averageRating Float?    @default(0)
+  totalReviews  Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  specialties  DoctorSpecialty[]
+  slots        AvailabilitySlot[]
+  appointments Appointment[]
+}
+
+model Specialty {
+  id       String           @id @default(cuid())
+  name     String           @unique
+  icon     String?          // emoji or icon name
+  description String?
+  doctors  DoctorSpecialty[]
+}
+
+model DoctorSpecialty {
+  doctorId    String
+  specialtyId String
+  doctor      Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  specialty   Specialty @relation(fields: [specialtyId], references: [id], onDelete: Cascade)
+
+  @@id([doctorId, specialtyId])
+}
+
+model AvailabilitySlot {
+  id        String   @id @default(cuid())
+  doctorId  String
+  doctor    Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  dayOfWeek Int      // 0=Sunday, 1=Monday ... 6=Saturday
+  startTime String   // "09:00"
+  endTime   String   // "17:00"
+  isBooked  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  appointments Appointment[]
+
+  @@unique([doctorId, dayOfWeek, startTime])
+  @@index([doctorId, dayOfWeek])
+}
+
+model Appointment {
+  id            String             @id @default(cuid())
+  patientId     String
+  patient       User               @relation("PatientAppointments", fields: [patientId], references: [id])
+  doctorId      String
+  doctor        Doctor             @relation(fields: [doctorId], references: [id])
+  slotId        String?
+  slot          AvailabilitySlot?  @relation(fields: [slotId], references: [id])
+  appointmentDate DateTime
+  startTime     String             // "09:00"
+  endTime       String             // "09:30"
+  status        AppointmentStatus  @default(PENDING)
+  reason        String?            // patient's reason for visit
+  notes         String?            // doctor's notes
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([appointmentDate])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  isRead    Boolean  @default(false)
+  type      String?  // appointment_reminder, status_change, etc.
+  referenceId String? // related appointment id
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+}
