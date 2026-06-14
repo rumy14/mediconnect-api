@@ -44,8 +44,8 @@ export async function triggerWelcomeCall(phone: string, firstName: string): Prom
         assistantId: config.vapi.agentId,
         customer: {
           number: normalizedPhone,
+          name: firstName,
         },
-        // Pass user context so the AI agent can personalize the call
         metadata: {
           firstName,
           source: 'mediconnect-signup',
