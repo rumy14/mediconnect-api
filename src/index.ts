@@ -1,3 +1,11 @@
+// Patch Prisma Decimal to serialize as number (default: string)
+try {
+  const { Decimal } = require('@prisma/client');
+  if (Decimal?.prototype?.toJSON) {
+    Decimal.prototype.toJSON = function () { return Number(this); };
+  }
+} catch { /* prisma not yet available */ }
+
 import { createApp } from './app';
 import { config } from './config';
 import { prisma } from './utils/prisma';

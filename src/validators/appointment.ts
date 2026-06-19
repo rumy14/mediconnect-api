@@ -6,7 +6,7 @@ export const createAppointmentSchema = z.object({
     message: 'Invalid date format',
   }),
   startTime: z.string().regex(/^\d{2}:\d{2}$/, 'Time must be in HH:mm format'),
-  reason: z.string().max(500).optional(),
+  reason: z.string().max(500).nullish(),
 });
 
 export const cancelAppointmentSchema = z.object({
