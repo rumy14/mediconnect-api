@@ -69,7 +69,6 @@ doctorRouter.get('/:id', async (req: Request, res: Response, next: NextFunction)
 });
 
 // GET /api/doctors/:id/slots — available time slots
-// If authenticated, also filters out slots where the user already has an appointment on the same date
 doctorRouter.get('/:id/slots', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { date } = req.query;
@@ -85,34 +84,6 @@ doctorRouter.get('/:id/slots', async (req: Request, res: Response, next: NextFun
       where: { doctorId: req.params.id, dayOfWeek, isBooked: false },
       orderBy: { startTime: 'asc' },
     });
-
-    // If authenticated, filter out slots where user already has an appointment
-    const authHeader = req.headers.authorization;
-    if (authHeader?.startsWith('Bearer ')) {
-      try {
-        const token = authHeader.split(' ')[1];
-        const jwt = require('jsonwebtoken');
-        const { config } = require('../config');
-        const decoded = jwt.verify(token, config.jwt.secret);
-
-        const existingAppointments = await prisma.appointment.findMany({
-          where: {
-            patientId: decoded.id,
-            appointmentDate,
-            status: { notIn: ['CANCELLED', 'NO_SHOW'] },
-          },
-          select: { startTime: true },
-        });
-
-        const conflictingTimes = new Set(existingAppointments.map(a => a.startTime));
-        const filtered = slots.filter(s => !conflictingTimes.has(s.startTime));
-
-        res.json(success(filtered));
-        return;
-      } catch {
-        // If token validation fails, just return all available slots
-      }
-    }
 
     res.json(success(slots));
   } catch (error) {
